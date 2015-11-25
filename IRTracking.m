@@ -28,11 +28,11 @@ quietmode = 1;
 
 %% Load video
 % Specify video name and path
-[filename, path] = uigetfile('*.wmv','Select the video file');
-addpath(path);
+[filename, vidpath] = uigetfile('*.wmv','Select the video file');
+addpath(vidpath);
 
 % Get common parameters
-VidObj = VideoReader(fullfile(path,filename));
+VidObj = VideoReader(fullfile(vidpath,filename));
 
 nVidFrame = VidObj.NumberOfFrames;
 vidHeight = VidObj.Height;
@@ -180,7 +180,7 @@ legend({'Error-subtracted total area','Total Area', 'Error'})
 grid on
 
 % Input the threshold
-threshold2 = input('Threshold2 =');
+threshold2 = input('Threshold2=');
 close(101)
 
 %% Final segmentation
@@ -242,9 +242,57 @@ textprogressbar('Done!')
 %% Output workspace and the image if needed
 % saveastiff(uint8(arena_final),'Michelletracking.tif');
 
-save(fullfile(path,[filename(1:end-4),'.mat']))
+save(fullfile(vidpath,[filename(1:end-4),'.mat']))
 
 %% Obtain the coordinates of the flies
 % Prime the matrix to store the coordinates
 flycoords = zeros(n_arenas, 2, nframe2load);
 
+% Initiate textprogressbar
+textprogressbar('Determining centroids: ')
+
+for ii = 1 : nframe2load
+    % Obrain the centroids
+    centroids = regionprops(arena_final(:,:,ii),'Centroid');
+    
+    % For mat the centroids and load it to the flycoords matrix
+    flycoords(:,:,ii) = cell2mat({centroids.Centroid}');
+    
+    % Update text progress bar
+    textprogressbar(i/nframe2load * 100);
+end
+
+% Terminate textprogressbar
+textprogressbar('Done!')
+
+%% Zero initial coordinate and make the plot
+% Zero initial location
+flycoords_zeroed = flycoords - repmat(flycoords(:,:,1),[1,1,nframe2load]);
+
+% Plot the zeroed traces
+figure('Position',[50, 200, 1500, 350], 'Color', [1 1 1])
+
+% Left subplot shows the zeroed traces
+subplot(1,4,1:3)
+plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
+    'LineWidth', 2);
+
+% Create lines to label quadrants
+ylimits = get(gca,'ylim');
+xlimits = get(gca,'xlim');
+
+line([0 0], ylimits, 'Color',[0 0 0])
+line(xlimits, [0 0], 'Color', [0 0 0])
+
+% Label x and y
+xlabel('X location')
+ylabel('Y location')
+
+% Right subplot shows the polar plot of the net displacement of each fly
+subplot(1,4,4)
+compass(flycoords_zeroed(:,:,end))
+
+%% Keep and save data
+keep all_arena_size all_arenas_new arena_final flycoords flycoords_zeroed...
+    filename n_arenas vidpath vidfps nframe2load
+save(fullfile(vidpath,[filename(1:end-4),'_clean.mat']))
