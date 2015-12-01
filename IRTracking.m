@@ -6,22 +6,25 @@
 targetfps = 15;
 
 % Set frame-gaps used for background calculation
-bg_frame_gaps = 1;
+bg_frame_gaps = 10;
 
 % First frame to load (for tracking and background calculation)
-firstframe2load = 1;
+firstframe2load = 500;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 330;
+lastframe2load = 3000;
 
 % Last frame used for background
-bg_lastframe2load = 330;
+bg_lastframe2load = 3000;
 
 % Max tunning threshold
-Max_threshold = 20;
+Max_threshold = 100;
 
 % Channel to choose: red = 1, blue = 2, or green = 3
 RGBchannel = 1;
+
+% The size of erosion
+erosionsize = 1;
 
 % Choose 1 if don't want to see the progress of processing
 quietmode = 1;
@@ -42,7 +45,8 @@ vidDuration = VidObj.Duration;
 
 %% Crop-out the ROI
 % Read out the first frame
-sampleframe = read(VidObj , 1);
+
+sampleframe = read(VidObj , firstframe2load);
 
 % Only use the Red channel
 sampleframe = sampleframe(:,:,RGBchannel);
@@ -92,10 +96,10 @@ figure(101)
 set(101,'Position',[100 50 1000 600])
 
 % Showcase all the threshold levels
-for i = 1 : 20
-    subplot(4,5,i);
-    imshow(im2bw(sampleframe_cr, i/200));
-    text(10,15,num2str(i/200),'Color',[1 0 0]);
+for i = 1 : 8
+    subplot(2,4,i);
+    imshow(im2bw(sampleframe_cr, i/100));
+    text(10,15,num2str(i/100),'Color',[1 0 0]);
 end
 
 % Input the threshold
@@ -105,7 +109,7 @@ close(101)
 %% Find and sort arenas from top to bottom
 % Apply threshold to find the arenas
 [all_arenas , n_arenas] = bwlabel(im2bw(sampleframe_cr, threshold));
-disp(['Find ', num2str(n_arenas), ' arenas.'])
+disp(['Found ', num2str(n_arenas), ' arenas.'])
 
 % Use the centroids of the arenas to sort them from top to bottom
 centroids = regionprops(all_arenas,'Centroid');
@@ -141,6 +145,13 @@ nframe2load = length(frames2load_vec);
 % Create arena stack
 arena = uint8( zeros( all_arena_size(1), all_arena_size(2), nframe2load ) );
 
+% A stack used to detect gross movements of the arena (debug)
+% arena_gross = arena;
+
+% A erosoin mask used to remove the arena edges
+erosion_mask = all_arenas > 0;
+erosion_mask = uint8(imerode(erosion_mask,strel('disk',erosionsize)));
+
 % Initialize text progress bar
 textprogressbar('Loading arena stack: ');
 
@@ -148,23 +159,35 @@ for i = 1 : nframe2load
     % Loading
     im = single(read(VidObj , frames2load_vec(i)));
 
-    % Apply manual cropping
+    % Apply manual cropping and background
     arena(:,:,i) = uint8(-im(cropindices(2):cropindices(2)+cropindices(4),...
     cropindices(1):cropindices(1)+cropindices(3), RGBchannel)...
-    + background);
+    + background) .* erosion_mask;
+
+    % Update arena gross (debug)
+    % arena_gross(:,:,i) = uint8(im2bw(im(cropindices(2):cropindices(2)+cropindices(4),...
+    % cropindices(1):cropindices(1)+cropindices(3), RGBchannel),threshold));
 
     % Update progress bar
     textprogressbar(i/nframe2load*100);
 end
 
- % Terminate text progress bar
- textprogressbar('Done!');
- 
+% Terminate text progress bar
+textprogressbar('Done!');
+
+%% Detect the gross movement of the arena (debug)
+
+% arena_move = diff(arena_gross,1,3);
+
+% plot(squeeze(sum(sum(test))))
+
+
+
 %% Tune the threshold to pickout flies.
 Tunning_vec = zeros(Max_threshold , 3);
 
 for i = 1 : Max_threshold
-    [~, sorted_areas, n_areas_found] = areasort(arena(:,:,1)>i, n_arenas);
+    [~, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
     if n_areas_found >= n_arenas
         Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) - sum(sorted_areas(n_arenas+1:end));
         Tunning_vec(i,2) = sum(sorted_areas(1:n_arenas));
@@ -176,7 +199,7 @@ figure(101)
 plot(Tunning_vec, 'o-','LineWidth',3)
 xlabel('Threshold')
 ylabel('Area')
-legend({'Error-subtracted total area','Total Area', 'Error'})
+legend({'Error-subtracted top-n area','Total top-n Area', 'Error'})
 grid on
 
 % Input the threshold
@@ -188,10 +211,11 @@ close(101)
 arena_final = arena;
 
 % Prime a thresholds vector for debugging
-thresholds_final = threshold2 * ones(nframe2load,1 );
+thresholds_final = threshold2 * ones(nframe2load,1);
 
 % Initiate textprogressbar
 textprogressbar('Final segmentation: ');
+
 
 for i = 1 : nframe2load
     % Apply threshold
