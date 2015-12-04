@@ -9,6 +9,7 @@ targetfps = 15;
 bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
+
 firstframe2load = 10;
 
 % Last frame to load (a debugging variable)
@@ -16,6 +17,12 @@ lastframe2load = 270;
 
 % Last frame used for background
 bg_lastframe2load = 300;
+
+% Last frame to load (a debugging variable)
+lastframe2load = 280;
+
+% Last frame used for background
+bg_lastframe2load = 280;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -26,12 +33,12 @@ RGBchannel = 1;
 % The size of erosion
 erosionsize = 1;
 
-% Choose 1 if don't want to see the progress of processing
-quietmode = 1;
+% Direction 1 = fly moving horizontally  2 = vertically
+flydirection = 1;
 
 %% Load video
 % Specify video name and path
-[filename, vidpath] = uigetfile('*.wmv','Select the video file');
+[filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.wmv','Select the video file');
 addpath(vidpath);
 
 % Get common parameters
@@ -98,15 +105,15 @@ set(101,'Position',[100 50 1000 600])
 % Showcase all the threshold levels
 for i = 1 : 8
     subplot(2,4,i);
-    imshow(im2bw(sampleframe_cr, i/100));
-    text(10,15,num2str(i/100),'Color',[1 0 0]);
+    imshow(im2bw(sampleframe_cr, i/10));
+    text(10,15,num2str(i/10),'Color',[1 0 0]);
 end
 
 % Input the threshold
 threshold = input('Threshold=');
 close(101)
 
-%% Find and sort arenas from top to bottom
+%% Find and sort arenas from top to bottom (or left to right)
 % Apply threshold to find the arenas
 [all_arenas , n_arenas] = bwlabel(im2bw(sampleframe_cr, threshold));
 disp(['Found ', num2str(n_arenas), ' arenas.'])
@@ -114,9 +121,18 @@ disp(['Found ', num2str(n_arenas), ' arenas.'])
 % Use the centroids of the arenas to sort them from top to bottom
 centroids = regionprops(all_arenas,'Centroid');
 centroids = round(cell2mat({centroids.Centroid}'));
-centroids_y = centroids(:,2);
 
-[~, arena_order] = sort(centroids_y,'ascend');
+if flydirection == 1
+    % Top to down
+    centroids_y = centroids(:,2);
+    [~, arena_order] = sort(centroids_y,'ascend');
+else
+    % Left to right
+    centroids_x = centroids(:,1);
+    [~, arena_order] = sort(centroids_x,'ascend');
+
+end
+% 
 
 % Apply the sorted arena order to relabel the new arenas order (1 - top, 2 
 % - second from top..., n - bottom)
@@ -301,19 +317,29 @@ subplot(1,4,1:3)
 % plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
 %     'LineWidth', 2);
 
-% Plot left-right movement over time
-plot(squeeze(flycoords_zeroed(:,1,:))')
+if flydirection == 1
+    % Plot horizontal
+    plot(squeeze(flycoords_zeroed(:,1,:))')
+else
+    % Plot vertical
+    plot(squeeze(flycoords_zeroed(:,2,:))')
+end
 
 % Create lines to label quadrants
-ylimits = get(gca,'ylim');
-xlimits = get(gca,'xlim');
+% ylimits = get(gca,'ylim');
+% xlimits = get(gca,'xlim');
 
 % line([0 0], ylimits, 'Color',[0 0 0])
 % line(xlimits, [0 0], 'Color', [0 0 0])
 
 % Label x and y
-xlabel('X location')
-ylabel('Y location')
+xlabel('Time')
+
+if flydirection ==1
+    ylabel('X location')
+else
+    ylabel('Y location')
+end
 
 % Right subplot shows the polar plot of the net displacement of each fly
 subplot(1,4,4)
