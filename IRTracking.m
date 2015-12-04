@@ -6,16 +6,16 @@
 targetfps = 15;
 
 % Set frame-gaps used for background calculation
-bg_frame_gaps = 10;
+bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
-firstframe2load = 500;
+firstframe2load = 10;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 3000;
+lastframe2load = 270;
 
 % Last frame used for background
-bg_lastframe2load = 3000;
+bg_lastframe2load = 300;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -298,15 +298,18 @@ figure('Position',[50, 200, 1500, 350], 'Color', [1 1 1])
 
 % Left subplot shows the zeroed traces
 subplot(1,4,1:3)
-plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
-    'LineWidth', 2);
+% plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
+%     'LineWidth', 2);
+
+% Plot left-right movement over time
+plot(squeeze(flycoords_zeroed(:,1,:))')
 
 % Create lines to label quadrants
 ylimits = get(gca,'ylim');
 xlimits = get(gca,'xlim');
 
-line([0 0], ylimits, 'Color',[0 0 0])
-line(xlimits, [0 0], 'Color', [0 0 0])
+% line([0 0], ylimits, 'Color',[0 0 0])
+% line(xlimits, [0 0], 'Color', [0 0 0])
 
 % Label x and y
 xlabel('X location')
