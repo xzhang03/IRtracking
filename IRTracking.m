@@ -3,19 +3,19 @@
 
 %% Set parameters
 % Set target fps
-targetfps = 15;
+targetfps = 1;
 
 % Set frame-gaps used for background calculation
-bg_frame_gaps = 10;
+bg_frame_gaps = 100;
 
 % First frame to load (for tracking and background calculation)
-firstframe2load = 500;
+firstframe2load = 30;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 3000;
+lastframe2load = 38400;
 
 % Last frame used for background
-bg_lastframe2load = 3000;
+bg_lastframe2load = 38400;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -31,7 +31,7 @@ quietmode = 1;
 
 %% Load video
 % Specify video name and path
-[filename, vidpath] = uigetfile('*.wmv','Select the video file');
+[filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.wmv','Select the video file');
 addpath(vidpath);
 
 % Get common parameters
@@ -98,8 +98,8 @@ set(101,'Position',[100 50 1000 600])
 % Showcase all the threshold levels
 for i = 1 : 8
     subplot(2,4,i);
-    imshow(im2bw(sampleframe_cr, i/100));
-    text(10,15,num2str(i/100),'Color',[1 0 0]);
+    imshow(im2bw(sampleframe_cr, i/10));
+    text(10,15,num2str(i/10),'Color',[1 0 0]);
 end
 
 % Input the threshold
@@ -114,9 +114,13 @@ disp(['Found ', num2str(n_arenas), ' arenas.'])
 % Use the centroids of the arenas to sort them from top to bottom
 centroids = regionprops(all_arenas,'Centroid');
 centroids = round(cell2mat({centroids.Centroid}'));
-centroids_y = centroids(:,2);
+% centroids_y = centroids(:,2);
 
-[~, arena_order] = sort(centroids_y,'ascend');
+% Left to right
+centroids_x = centroids(:,1);
+[~, arena_order] = sort(centroids_x,'ascend');
+
+% [~, arena_order] = sort(centroids_y,'ascend');
 
 % Apply the sorted arena order to relabel the new arenas order (1 - top, 2 
 % - second from top..., n - bottom)
@@ -298,15 +302,21 @@ figure('Position',[50, 200, 1500, 350], 'Color', [1 1 1])
 
 % Left subplot shows the zeroed traces
 subplot(1,4,1:3)
-plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
-    'LineWidth', 2);
+% plot(squeeze(flycoords_zeroed(:,1,:))' , squeeze(flycoords_zeroed(:,2,:))',...
+%     'LineWidth', 2);
+
+% Plot horizontal
+% plot(squeeze(flycoords_zeroed(:,1,:))')
+
+% Plot vertical
+plot(squeeze(flycoords_zeroed(:,2,:))')
 
 % Create lines to label quadrants
-ylimits = get(gca,'ylim');
-xlimits = get(gca,'xlim');
+% ylimits = get(gca,'ylim');
+% xlimits = get(gca,'xlim');
 
-line([0 0], ylimits, 'Color',[0 0 0])
-line(xlimits, [0 0], 'Color', [0 0 0])
+% line([0 0], ylimits, 'Color',[0 0 0])
+% line(xlimits, [0 0], 'Color', [0 0 0])
 
 % Label x and y
 xlabel('X location')
