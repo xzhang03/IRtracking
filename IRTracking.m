@@ -18,12 +18,6 @@ lastframe2load = 270;
 % Last frame used for background
 bg_lastframe2load = 300;
 
-% Last frame to load (a debugging variable)
-lastframe2load = 280;
-
-% Last frame used for background
-bg_lastframe2load = 280;
-
 % Max tunning threshold
 Max_threshold = 100;
 
