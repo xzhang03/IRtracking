@@ -235,7 +235,7 @@ figure(101)
 plot(squeeze(Tunning_vec(:,3,:)), 'o-','LineWidth',3)
 xlabel('Threshold')
 ylabel('F1 score')
-% legend('Color represent frames')
+legend({'Sample Frame 1', 'Sample Frame 2', 'Sample Frame 3'})
 
 grid on
 
