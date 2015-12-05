@@ -30,6 +30,9 @@ erosionsize = 1;
 % Direction 1 = fly moving horizontally  2 = vertically
 flydirection = 1;
 
+% Frames used to tune threshold2
+nframesthresh2 = 3;
+
 %% Load video
 % Specify video name and path
 [filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.wmv','Select the video file');
@@ -194,31 +197,45 @@ textprogressbar('Done!');
 
 
 %% Tune the threshold to pickout flies.
-Tunning_vec = zeros(Max_threshold , 3);
+% Define the imaged used to tune threshold2
+tunning_image = repmat(arena(:,:,1), [1 1 nframesthresh2]);
 
-for i = 1 : Max_threshold
-    [sorted_image, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
-    if n_areas_found >= n_arenas
-        % Calculate precision
-        Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
-        
-        % Calculate recall
-        % If no fly is detected in any well, set recall to 0;
-        sorted_image_labeled = double(sorted_image>0) .* all_arenas_new;
+% Load the images, which are equally spaced apart in the entire stack
+for i = 1 : nframesthresh2
+    tunning_image(:,:,i) = arena(:,:,...
+        round(nframe2load/(nframesthresh2 + 1) * i));
+end
 
-        if length(unique(sorted_image_labeled(:))) == n_arenas + 1
-            Tunning_vec(i,2) = 1;
+Tunning_vec = zeros(Max_threshold , 3 , nframesthresh2);
+
+for j = 1 : nframesthresh2
+    for i = 1 : Max_threshold
+        [sorted_image, sorted_areas, n_areas_found] =...
+            areasort(tunning_image (:,:,j)>i, n_arenas);
+        if n_areas_found >= n_arenas
+            % Calculate precision
+            Tunning_vec(i,1,j) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
+
+            % Calculate recall
+            % If no fly is detected in any well, set recall to 0;
+            sorted_image_labeled = double(sorted_image>0) .* all_arenas_new;
+
+            if length(unique(sorted_image_labeled(:))) == n_arenas + 1
+                Tunning_vec(i,2,j) = 1;
+            end
+
+            % Calculate F1 score
+            Tunning_vec(i,3,j) = 2 * Tunning_vec(i,1,j) * Tunning_vec(i,2,j)...
+                / (Tunning_vec(i,1,j) + Tunning_vec(i,2,j));
         end
-        
-        % Calculate F1 score
-        Tunning_vec(i,3) = 2 * Tunning_vec(i,1) * Tunning_vec(i,2) / (Tunning_vec(i,1) + Tunning_vec(i,2));
     end
 end
 
 figure(101)
-plot(Tunning_vec(:,3), 'o-','LineWidth',3)
+plot(squeeze(Tunning_vec(:,3,:)), 'o-','LineWidth',3)
 xlabel('Threshold')
 ylabel('F1 score')
+% legend('Color represent frames')
 
 grid on
 
