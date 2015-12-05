@@ -199,17 +199,22 @@ Tunning_vec = zeros(Max_threshold , 3);
 for i = 1 : Max_threshold
     [~, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
     if n_areas_found >= n_arenas
-        Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) - sum(sorted_areas(n_arenas+1:end));
-        Tunning_vec(i,2) = sum(sorted_areas(1:n_arenas));
-        Tunning_vec(i,3) = sum(sorted_areas(n_arenas+1:end));
+        % Calculate precision
+        Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
+        
+        % Calculate recall
+        Tunning_vec(i,2) = 1;
+        
+        % Calculate F1 score
+        Tunning_vec(i,3) = 2 * Tunning_vec(i,1) * Tunning_vec(i,2) / (Tunning_vec(i,1) + Tunning_vec(i,2));
     end
 end
 
 figure(101)
-plot(Tunning_vec, 'o-','LineWidth',3)
+plot(Tunning_vec(:,3), 'o-','LineWidth',3)
 xlabel('Threshold')
 ylabel('Area')
-legend({'Error-subtracted top-n area','Total top-n Area', 'Error'})
+legend('F1 score')
 grid on
 
 % Input the threshold
