@@ -197,13 +197,18 @@ textprogressbar('Done!');
 Tunning_vec = zeros(Max_threshold , 3);
 
 for i = 1 : Max_threshold
-    [~, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
+    [sorted_image, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
     if n_areas_found >= n_arenas
         % Calculate precision
         Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
         
         % Calculate recall
-        Tunning_vec(i,2) = 1;
+        % If no fly is detected in any well, set recall to 0;
+        sorted_image_labeled = double(sorted_image>0) .* all_arenas_new;
+
+        if length(unique(sorted_image_labeled(:))) == n_arenas + 1
+            Tunning_vec(i,2) = 1;
+        end
         
         % Calculate F1 score
         Tunning_vec(i,3) = 2 * Tunning_vec(i,1) * Tunning_vec(i,2) / (Tunning_vec(i,1) + Tunning_vec(i,2));
@@ -213,8 +218,8 @@ end
 figure(101)
 plot(Tunning_vec(:,3), 'o-','LineWidth',3)
 xlabel('Threshold')
-ylabel('Area')
-legend('F1 score')
+ylabel('F1 score')
+
 grid on
 
 % Input the threshold
@@ -332,7 +337,7 @@ end
 % line(xlimits, [0 0], 'Color', [0 0 0])
 
 % Label x and y
-xlabel('Time')
+xlabel('Time (frame)')
 
 if flydirection ==1
     ylabel('X location')
