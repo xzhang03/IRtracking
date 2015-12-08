@@ -9,13 +9,14 @@ targetfps = 15;
 bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
-firstframe2load = 20;
+
+firstframe2load = 10;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 280;
+lastframe2load = 270;
 
 % Last frame used for background
-bg_lastframe2load = 280;
+bg_lastframe2load = 300;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -28,6 +29,9 @@ erosionsize = 1;
 
 % Direction 1 = fly moving horizontally  2 = vertically
 flydirection = 1;
+
+% Frames used to tune threshold2
+nframesthresh2 = 3;
 
 %% Load video
 % Specify video name and path
@@ -193,22 +197,46 @@ textprogressbar('Done!');
 
 
 %% Tune the threshold to pickout flies.
-Tunning_vec = zeros(Max_threshold , 3);
+% Define the imaged used to tune threshold2
+tunning_image = repmat(arena(:,:,1), [1 1 nframesthresh2]);
 
-for i = 1 : Max_threshold
-    [~, sorted_areas, n_areas_found] = areasort(arena(:,:,round(nframe2load/2))>i, n_arenas);
-    if n_areas_found >= n_arenas
-        Tunning_vec(i,1) = sum(sorted_areas(1:n_arenas)) - sum(sorted_areas(n_arenas+1:end));
-        Tunning_vec(i,2) = sum(sorted_areas(1:n_arenas));
-        Tunning_vec(i,3) = sum(sorted_areas(n_arenas+1:end));
+% Load the images, which are equally spaced apart in the entire stack
+for i = 1 : nframesthresh2
+    tunning_image(:,:,i) = arena(:,:,...
+        round(nframe2load/(nframesthresh2 + 1) * i));
+end
+
+Tunning_vec = zeros(Max_threshold , 3 , nframesthresh2);
+
+for j = 1 : nframesthresh2
+    for i = 1 : Max_threshold
+        [sorted_image, sorted_areas, n_areas_found] =...
+            areasort(tunning_image (:,:,j)>i, n_arenas);
+        if n_areas_found >= n_arenas
+            % Calculate precision
+            Tunning_vec(i,1,j) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
+
+            % Calculate recall
+            % If no fly is detected in any well, set recall to 0;
+            sorted_image_labeled = double(sorted_image>0) .* all_arenas_new;
+
+            if length(unique(sorted_image_labeled(:))) == n_arenas + 1
+                Tunning_vec(i,2,j) = 1;
+            end
+
+            % Calculate F1 score
+            Tunning_vec(i,3,j) = 2 * Tunning_vec(i,1,j) * Tunning_vec(i,2,j)...
+                / (Tunning_vec(i,1,j) + Tunning_vec(i,2,j));
+        end
     end
 end
 
 figure(101)
-plot(Tunning_vec, 'o-','LineWidth',3)
+plot(squeeze(Tunning_vec(:,3,:)), 'o-','LineWidth',3)
 xlabel('Threshold')
-ylabel('Area')
-legend({'Error-subtracted top-n area','Total top-n Area', 'Error'})
+ylabel('F1 score')
+legend({'Sample Frame 1', 'Sample Frame 2', 'Sample Frame 3'})
+
 grid on
 
 % Input the threshold
@@ -317,6 +345,7 @@ else
     % Plot vertical
     plot(squeeze(flycoords_zeroed(:,2,:))')
 end
+
 % Create lines to label quadrants
 % ylimits = get(gca,'ylim');
 % xlimits = get(gca,'xlim');
@@ -325,7 +354,7 @@ end
 % line(xlimits, [0 0], 'Color', [0 0 0])
 
 % Label x and y
-xlabel('Time')
+xlabel('Time (frame)')
 
 if flydirection ==1
     ylabel('X location')
