@@ -337,6 +337,43 @@ end
 subplot(1,4,4)
 compass(flycoords_zeroed(:,:,end))
 
+%% Print average summary plots
+
+% Compute mean and sem
+mean_coords = squeeze(nanmean(flycoords_zeroed,1));
+semcoords = squeeze(nanstd(flycoords_zeroed,1) / sqrt(n_arenas));
+
+% Plot mean
+figure('color',[1 1 1]); 
+% This part will differ based on whether flies are moving vertically or
+% horizontally
+shadedErrorBar((1:length(mean_coords(1,:)))/targetfps, mean_coords(1,:),...
+    semcoords(1,:), {'Color', [0 .4 0.7]});
+title('Mean Position', 'FontWeight', 'bold');
+ylabel('Mean Position (pixels)');
+xlabel('Time (seconds)');
+set(gca,'Box','off');
+
+% Compute mean velocity
+diff_coords = diff(flycoords_zeroed,1,3);
+mean_vel = squeeze(nanmean(diff_coords,1));
+sem_vel = squeeze(nanstd(diff_coords,1) / sqrt(n_arenas));
+
+% Plot mean velocity
+figure('color',[1 1 1]); 
+% This part will differ based on whether flies are moving vertically or
+% horizontally
+shadedErrorBar((1:length(mean_vel(1,:)))/targetfps, mean_vel(1,:),...
+    sem_vel(1,:), {'Color', [0.5 0 0.5]});
+title('Mean Velocity', 'FontWeight', 'bold');
+ylabel('Velocity (pixels/frame)');
+xlabel('Time (seconds)');
+set(gca,'Box','off');
+
+% Print out the number of nans in the computed array (as a sanity check on
+% how good your thresholding was)
+num_nans = sum(isnan(flycoords(:)));
+display('Number of NaNs:'), display(num_nans);
 %% Keep and save data
 keep all_arena_size all_arenas_new arena_final flycoords flycoords_zeroed...
     filename n_arenas vidpath vidfps nframe2load
