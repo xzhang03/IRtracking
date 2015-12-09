@@ -10,13 +10,13 @@ bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
 
-firstframe2load = 90;
+firstframe2load = 2189;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 250;
+lastframe2load = 2304;
 
 % Last frame used for background
-bg_lastframe2load = 250;
+bg_lastframe2load = 2304;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -367,13 +367,13 @@ end
 
 % Right subplot shows the polar plot of the net displacement of each fly
 subplot(1,4,4)
-compass(flycoords_zeroed(:,:,end))
+compass(flycoords_zeroed2(:,:,end))
 
 %% Print average summary plots
 
 % Compute mean and sem
-mean_coords = squeeze(nanmean(flycoords_zeroed,1));
-semcoords = squeeze(nanstd(flycoords_zeroed,1) / sqrt(n_arenas));
+mean_coords = squeeze(nanmean(flycoords_zeroed2,1));
+semcoords = squeeze(nanstd(flycoords_zeroed2,1) / sqrt(n_arenas));
 
 % Plot mean
 figure('color',[1 1 1]); 
@@ -387,7 +387,7 @@ xlabel('Time (seconds)');
 set(gca,'Box','off');
 
 % Compute mean velocity
-diff_coords = diff(flycoords_zeroed,1,3);
+diff_coords = diff(flycoords_zeroed2,1,3);
 mean_vel = squeeze(nanmean(diff_coords,1));
 sem_vel = squeeze(nanstd(diff_coords,1) / sqrt(n_arenas));
 
