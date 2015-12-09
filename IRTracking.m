@@ -3,20 +3,20 @@
 
 %% Set parameters
 % Set target fps
-targetfps = 15;
+targetfps = 3.5;
 
 % Set frame-gaps used for background calculation
 bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
 
-firstframe2load = 10;
+firstframe2load = 90;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 270;
+lastframe2load = 250;
 
 % Last frame used for background
-bg_lastframe2load = 300;
+bg_lastframe2load = 250;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -28,14 +28,14 @@ RGBchannel = 1;
 erosionsize = 1;
 
 % Direction 1 = fly moving horizontally  2 = vertically
-flydirection = 1;
+flydirection = 2;
 
 % Frames used to tune threshold2
 nframesthresh2 = 3;
 
 %% Load video
 % Specify video name and path
-[filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.wmv','Select the video file');
+[filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.avi','Select the video file');
 addpath(vidpath);
 
 % Get common parameters
@@ -330,6 +330,9 @@ textprogressbar('Done!')
 % Zero initial location
 flycoords_zeroed = flycoords - repmat(flycoords(:,:,1),[1,1,nframe2load]);
 
+% flycoords_zeroed2 (to be fixed by MF)
+flycoords_zeroed2 = flycoords_zeroed(fly2keep,:,:);
+
 % Plot the zeroed traces
 figure('Position',[50, 200, 1500, 350], 'Color', [1 1 1])
 
@@ -340,10 +343,10 @@ subplot(1,4,1:3)
 
 if flydirection == 1
     % Plot horizontal
-    plot(squeeze(flycoords_zeroed(:,1,:))')
+    plot(squeeze(flycoords_zeroed2(:,1,:))')
 else
     % Plot vertical
-    plot(squeeze(flycoords_zeroed(:,2,:))')
+    plot(squeeze(flycoords_zeroed2(:,2,:))')
 end
 
 % Create lines to label quadrants
