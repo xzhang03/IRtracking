@@ -10,13 +10,13 @@ bg_frame_gaps = 1;
 
 % First frame to load (for tracking and background calculation)
 
-firstframe2load = 2189;
+firstframe2load = 27;
 
 % Last frame to load (a debugging variable)
-lastframe2load = 2304;
+lastframe2load = 120;
 
 % Last frame used for background
-bg_lastframe2load = 2304;
+bg_lastframe2load = 120;
 
 % Max tunning threshold
 Max_threshold = 100;
@@ -33,9 +33,12 @@ flydirection = 2;
 % Frames used to tune threshold2
 nframesthresh2 = 3;
 
+% Arena threshold
+threshold = 0.2;
+
 %% Load video
 % Specify video name and path
-[filename, vidpath] = uigetfile('D:\Projects\Visual-processing\*.avi','Select the video file');
+[filename, vidpath] = uigetfile('E:\Dropbox\Michelle\Video-data\*.avi','Select the video file');
 addpath(vidpath);
 
 % Get common parameters
@@ -95,25 +98,39 @@ background = single(median(bg_stack, 3));
 % Finish text progress bar
 textprogressbar('Done!');
 
+%% Determine which flies to keep
+% Show background
+imshow(background,[])
+
+fly2ignore = input('Input which arenas to ignore (1=left/up): ');
+
+
 %% Set threshold for finding wells
-figure(101)
-set(101,'Position',[100 50 1000 600])
+%{
+    figure(101)
+    set(101,'Position',[100 50 1000 600])
 
-% Showcase all the threshold levels
-for i = 1 : 8
-    subplot(2,4,i);
-    imshow(im2bw(sampleframe_cr, i/10));
-    text(10,15,num2str(i/10),'Color',[1 0 0]);
-end
+    % Showcase all the threshold levels
+    for i = 1 : 8
+        subplot(2,4,i);
+        imshow(im2bw(sampleframe_cr, i/10));
+        text(10,15,num2str(i/10),'Color',[1 0 0]);
+    end
 
-% Input the threshold
-threshold = input('Threshold=');
-close(101)
+    % Input the threshold
+    threshold = input('Threshold=');
+    close(101)
+%}
 
 %% Find and sort arenas from top to bottom (or left to right)
 % Apply threshold to find the arenas
+
 [all_arenas , n_arenas] = bwlabel(im2bw(sampleframe_cr, threshold));
 disp(['Found ', num2str(n_arenas), ' arenas.'])
+disp(['Ignore Arenas: ', mat2str(fly2ignore)])
+
+% Determine how many arenas count during thresholding
+n_arenas2 = n_arenas - length(fly2ignore);
 
 % Use the centroids of the arenas to sort them from top to bottom
 centroids = regionprops(all_arenas,'Centroid');
@@ -133,10 +150,18 @@ end
 
 % Apply the sorted arena order to relabel the new arenas order (1 - top, 2 
 % - second from top..., n - bottom)
-all_arenas_new = all_arenas;
+all_arenas_new = zeros(size(all_arenas));
 
+% Initiate arenaind
+arenaind = 1;
+
+% If the arena is ignored, don't count that arena
 for i = 1 : n_arenas
-    all_arenas_new(all_arenas==arena_order(i)) = i;
+    if sum(fly2ignore == i) == 0
+        all_arenas_new(all_arenas==arena_order(i)) = arenaind;
+        % Update arenaind
+        arenaind = arenaind + 1; 
+    end
 end
 
 all_arenas_new = imfill(all_arenas_new);
@@ -188,51 +213,56 @@ end
 % Terminate text progress bar
 textprogressbar('Done!');
 
-%% Detect the gross movement of the arena (debug)
-
-% arena_move = diff(arena_gross,1,3);
-
-% plot(squeeze(sum(sum(test))))
-
-
 
 %% Tune the threshold to pickout flies.
 % Define the imaged used to tune threshold2
-tunning_image = repmat(arena(:,:,1), [1 1 nframesthresh2]);
+tuning_image = repmat(arena(:,:,1), [1 1 nframesthresh2]);
 
 % Load the images, which are equally spaced apart in the entire stack
 for i = 1 : nframesthresh2
-    tunning_image(:,:,i) = arena(:,:,...
-        round(nframe2load/(nframesthresh2 + 1) * i));
+    tuning_image(:,:,i) = arena(:,:,...
+        round(nframe2load/(nframesthresh2 + 1) * i)) .* uint8(all_arenas_new>0);
 end
 
-Tunning_vec = zeros(Max_threshold , 3 , nframesthresh2);
+% Prepare to tuning threshold
+Tuning_vec = zeros(Max_threshold , 3 , nframesthresh2);
+
+% Initiate textprogressbar
+textprogressbar('Preparing to tune threshold2: ');
 
 for j = 1 : nframesthresh2
     for i = 1 : Max_threshold
-        [sorted_image, sorted_areas, n_areas_found] =...
-            areasort(tunning_image (:,:,j)>i, n_arenas);
-        if n_areas_found >= n_arenas
-            % Calculate precision
-            Tunning_vec(i,1,j) = sum(sorted_areas(1:n_arenas)) / sum(sorted_areas);
+        % use locallabel to label images
+        [sorted_areas , areasfound] =...
+        locallabel( tuning_image(:,:,j), all_arenas_new, i );
 
-            % Calculate recall
-            % If no fly is detected in any well, set recall to 0;
-            sorted_image_labeled = double(sorted_image>0) .* all_arenas_new;
+        % Calculate precision
+        Tuning_vec(i,1,j) = sum(sorted_areas(:)>0)...
+            / sum(sum(tuning_image(:,:,j) > i));
 
-            if length(unique(sorted_image_labeled(:))) == n_arenas + 1
-                Tunning_vec(i,2,j) = 1;
-            end
+        % Calculate recall
+        % If no fly is detected in any well, set recall to 0;
 
-            % Calculate F1 score
-            Tunning_vec(i,3,j) = 2 * Tunning_vec(i,1,j) * Tunning_vec(i,2,j)...
-                / (Tunning_vec(i,1,j) + Tunning_vec(i,2,j));
+        if sum(areasfound) == n_arenas2
+            Tuning_vec(i,2,j) = 1;
         end
+
+        % Calculate F1 score
+        Tuning_vec(i,3,j) = 2 * Tuning_vec(i,1,j) * Tuning_vec(i,2,j)...
+            / (Tuning_vec(i,1,j) + Tuning_vec(i,2,j));
+        
+        % Update progress bar
+        textprogressbar(((j-1)*Max_threshold+i)...
+            /nframesthresh2/Max_threshold*100);
     end
 end
 
+% Terminate text progress bar
+textprogressbar('Done!');
+
+% Make figure
 figure(101)
-plot(squeeze(Tunning_vec(:,3,:)), 'o-','LineWidth',3)
+plot(squeeze(Tuning_vec(:,3,:)), 'o-','LineWidth',3)
 xlabel('Threshold')
 ylabel('F1 score')
 legend({'Sample Frame 1', 'Sample Frame 2', 'Sample Frame 3'})
@@ -248,51 +278,47 @@ close(101)
 arena_final = arena;
 
 % Prime a thresholds vector for debugging
-thresholds_final = threshold2 * ones(nframe2load,1);
+thresholds_final = zeros(nframe2load,n_arenas2);
 
 % Initiate textprogressbar
 textprogressbar('Final segmentation: ');
 
 
 for i = 1 : nframe2load
-    % Apply threshold
-    im2 = arena(:,:,i) > threshold2;
+    % Use locallabel
+    [ im2, areasfound, thresholds_final(i,:) ] =...
+        locallabel(arena(:,:,i), all_arenas_new, threshold2);
     
     % Test how many flies are detected
-    [~, n_flies_detected] = bwlabel(im2, 4);
-    
-    if n_flies_detected < n_arenas
-        % Prepare to decrease threshold
-        threshold_tmp = threshold2;
-        
-        while n_flies_detected < n_arenas
-            % Decrease threshold
-            threshold_tmp = threshold_tmp - 1;
-            
-            % Applied decrease threshold
-            im2 = arena(:,:,i) > threshold_tmp;
-            
-            % Count the number of flies detected
-            [~, n_flies_detected] = bwlabel(im2, 4);
-        end
-        
-        % Apply areasort in case extraflies were created as threshold is
-        % decrased
-        im2 = areasort(im2, n_arenas);
-        im2 = im2 > 0;
-        
-        % Log threshold
-        thresholds_final(i) = threshold_tmp;
-        
-    elseif n_flies_detected > n_arenas
-        % Apply areasort to remove extra areas segmented
-        im2 = areasort(im2, n_arenas);
-        im2 = im2 > 0;
-    end
+    n_flies_detected = sum(areasfound);
+
+%     if n_flies_detected < n_arenas2
+%         % Prepare to decrease threshold
+%         threshold_tmp = threshold2;
+%         
+%         while n_flies_detected < n_arenas2 && threshold_tmp > 0
+%             % Decrease threshold
+%             threshold_tmp = threshold_tmp - 1;
+%             
+%             % Applied decrease threshold
+%                 % Use locallabel
+%             [im2, areasfound] =...
+%                 locallabel(arena(:,:,i), all_arenas_new, threshold_tmp);
+%             
+%              % Test how many flies are detected
+%             n_flies_detected = sum(areasfound);
+%         end
+%         
+%         % Log threshold
+%         thresholds_final(i) = threshold_tmp;
+%         
+%     end
     
     % Log the final arena
-    arena_final(:,:,i) = uint8(single(im2) .* all_arenas_new);
-    
+    % It's only worth logging if the software did find a threshold
+    if sum(thresholds_final(i,:) ==0) < 1
+        arena_final(:,:,i) = uint8(double(im2>0) .* all_arenas_new);
+    end
     % Update progress bar
     textprogressbar(i/nframe2load*100);
 end
@@ -307,20 +333,29 @@ save(fullfile(vidpath,[filename(1:end-4),'.mat']))
 
 %% Obtain the coordinates of the flies
 % Prime the matrix to store the coordinates
-flycoords = zeros(n_arenas, 2, nframe2load);
+flycoords = zeros(n_arenas2, 2, nframe2load);
 
 % Initiate textprogressbar
 textprogressbar('Determining centroids: ')
 
 for ii = 1 : nframe2load
-    % Obrain the centroids
-    centroids = regionprops(arena_final(:,:,ii),'Centroid');
-    
-    % For mat the centroids and load it to the flycoords matrix
-    flycoords(:,:,ii) = cell2mat({centroids.Centroid}');
-    
-    % Update text progress bar
-    textprogressbar(i/nframe2load * 100);
+    % If the software never found a threshold, it's not worth calculating
+    if sum(thresholds_final(i,:) ==0) < 1
+        % Obrain the centroids
+        centroids = regionprops(arena_final(:,:,ii),'Centroid');
+
+        % For mat the centroids and load it to the flycoords matrix
+        flycoords(:,:,ii) = cell2mat({centroids.Centroid}');
+
+        % Update text progress bar
+        textprogressbar(i/nframe2load * 100);
+    else
+        % Load NaN to coordinates
+        flycoords(:,:,ii) = NaN;
+        
+        % Update text progress bar
+        textprogressbar(i/nframe2load * 100);
+    end
 end
 
 % Terminate textprogressbar
@@ -331,7 +366,7 @@ textprogressbar('Done!')
 flycoords_zeroed = flycoords - repmat(flycoords(:,:,1),[1,1,nframe2load]);
 
 % flycoords_zeroed2 (to be fixed by MF)
-flycoords_zeroed2 = flycoords_zeroed(fly2keep,:,:);
+% flycoords_zeroed2 = flycoords_zeroed(fly2keep,:,:);
 
 % Plot the zeroed traces
 figure('Position',[50, 200, 1500, 350], 'Color', [1 1 1])
@@ -343,10 +378,10 @@ subplot(1,4,1:3)
 
 if flydirection == 1
     % Plot horizontal
-    plot(squeeze(flycoords_zeroed2(:,1,:))')
+    plot(squeeze(flycoords_zeroed(:,1,:))')
 else
     % Plot vertical
-    plot(squeeze(flycoords_zeroed2(:,2,:))')
+    plot(squeeze(flycoords_zeroed(:,2,:))')
 end
 
 % Create lines to label quadrants
@@ -367,7 +402,7 @@ end
 
 % Right subplot shows the polar plot of the net displacement of each fly
 subplot(1,4,4)
-compass(flycoords_zeroed2(:,:,end))
+compass(flycoords_zeroed(:,:,end))
 
 %% Print average summary plots
 
