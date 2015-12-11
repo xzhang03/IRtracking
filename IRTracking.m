@@ -102,7 +102,7 @@ textprogressbar('Done!');
 % Show background
 imshow(background,[])
 
-fly2ignore = input('Input which arenas to ignore (1=left/up): ');
+fly2ignore = input('Input which arenas to ignore (e.g. [1 3 4] from left to right): ');
 
 
 %% Set threshold for finding wells
@@ -292,28 +292,6 @@ for i = 1 : nframe2load
     % Test how many flies are detected
     n_flies_detected = sum(areasfound);
 
-%     if n_flies_detected < n_arenas2
-%         % Prepare to decrease threshold
-%         threshold_tmp = threshold2;
-%         
-%         while n_flies_detected < n_arenas2 && threshold_tmp > 0
-%             % Decrease threshold
-%             threshold_tmp = threshold_tmp - 1;
-%             
-%             % Applied decrease threshold
-%                 % Use locallabel
-%             [im2, areasfound] =...
-%                 locallabel(arena(:,:,i), all_arenas_new, threshold_tmp);
-%             
-%              % Test how many flies are detected
-%             n_flies_detected = sum(areasfound);
-%         end
-%         
-%         % Log threshold
-%         thresholds_final(i) = threshold_tmp;
-%         
-%     end
-    
     % Log the final arena
     % It's only worth logging if the software did find a threshold
     if sum(thresholds_final(i,:) ==0) < 1
